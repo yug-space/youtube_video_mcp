@@ -8,8 +8,9 @@ import sys
 from typing import TypedDict
 
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.formatters import TextFormatter
 from mcp.server.fastmcp import FastMCP
+
+_api = YouTubeTranscriptApi()
 
 # Initialize the MCP server
 mcp = FastMCP(
@@ -17,18 +18,22 @@ mcp = FastMCP(
     description="Fetches plain-text transcripts for public YouTube videos"
 )
 
-# YouTube URL regex pattern
-YOUTUBE_REGEX = re.compile(
-    r"(https?://)?(www\.)?"
-    r"(youtube|youtu|youtube-nocookie)\.(com|be)/"
-    r"(watch\?v=|embed/|v/|.+\?v=)?(?P<id>[^&=%\?]{11})"
-)
+_VIDEO_ID = r"(?P<id>[A-Za-z0-9_-]{11})"
+_PATTERNS = [
+    re.compile(rf"[?&]v={_VIDEO_ID}"),
+    re.compile(rf"youtu\.be/{_VIDEO_ID}"),
+    re.compile(rf"youtube(?:-nocookie)?\.com/(?:embed|v|shorts|live)/{_VIDEO_ID}"),
+    re.compile(rf"^{_VIDEO_ID}$"),
+]
 
 
 def extract_video_id(url: str) -> str | None:
     """Return the 11-character YouTube video ID (or None if invalid)."""
-    match = YOUTUBE_REGEX.match(url)
-    return match.group("id") if match else None
+    for pattern in _PATTERNS:
+        match = pattern.search(url)
+        if match:
+            return match.group("id")
+    return None
 
 
 class TranscriptRequest(TypedDict):
@@ -65,14 +70,12 @@ def get_transcript(url: str):
     if not video_id:
         raise ValueError("Invalid YouTube URL")
 
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-    transcript_text = ""
-    for item in transcript_list:
-        transcript_text += item["text"] + " "
+    fetched = _api.fetch(video_id)
+    transcript_text = " ".join(snippet.text for snippet in fetched).strip()
 
     return {
         "video_id": video_id,
-        "transcript": transcript_text
+        "transcript": transcript_text,
     }
 
 

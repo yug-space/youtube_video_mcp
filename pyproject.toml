@@ -7,5 +7,5 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=1.8.1",
-    "youtube-transcript-api>=1.0.3",
+    "youtube-transcript-api>=1.2.0",
 ]
